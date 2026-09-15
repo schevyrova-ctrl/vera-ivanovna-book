@@ -170,6 +170,17 @@ button:hover{transform:translateY(-1px);background:#fff}
   .views-badge{display:none!important}
 }
 
+
+.owner-mode .views-badge::after{
+  content:" · ваши просмотры не считаются";
+  font-size:11px;
+  font-weight:400;
+  opacity:.75;
+}
+@media(max-width:640px){
+  .owner-mode .views-badge::after{display:none}
+}
+
 </style>
 </head>
 <body>
@@ -271,40 +282,65 @@ document.addEventListener('touchend',e=>{
 showPage(0);
 </script>
 
-<script
-  src="https://page-views-api.ratneshc.com/script"
-  data-site="schevyrova-ctrl.github.io"
-  data-path="/vera-ivanovna-book"
-  defer
-></script>
+
 <script>
-async function updatePageViews(){
-  const el = document.getElementById('pageViews');
-  if(!el) return;
+(function(){
+  const OWNER_KEY = 'veraBookOwnerMode';
+  const params = new URLSearchParams(location.search);
 
-  // Считаем только реальную опубликованную страницу GitHub Pages,
-  // а не локальный файл на компьютере.
-  if(location.hostname !== 'schevyrova-ctrl.github.io'){
-    el.textContent = '—';
-    return;
+  // Специальная личная ссылка ?owner=1 включает "режим автора" на этом браузере.
+  if (params.get('owner') === '1') {
+    localStorage.setItem(OWNER_KEY, '1');
+
+    // Убираем параметр из адресной строки, чтобы случайно не переслать личную ссылку.
+    const cleanUrl = location.origin + location.pathname + location.hash;
+    history.replaceState({}, '', cleanUrl);
   }
 
-  try{
-    // Небольшая пауза — чтобы запрос учёта просмотра успел выполниться.
-    await new Promise(resolve => setTimeout(resolve, 900));
-    const url = 'https://page-views-api.ratneshc.com/api/v1/views'
-      + '?site=' + encodeURIComponent('schevyrova-ctrl.github.io')
-      + '&path=' + encodeURIComponent('/vera-ivanovna-book');
+  const isOwner = localStorage.getItem(OWNER_KEY) === '1';
+  const viewsEl = document.getElementById('pageViews');
 
-    const res = await fetch(url, {cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    el.textContent = Number(data.views || 0).toLocaleString('ru-RU');
-  }catch(err){
-    el.textContent = '—';
+  async function showViews(){
+    if(!viewsEl) return;
+
+    // Локально счётчик не работает.
+    if(location.hostname !== 'schevyrova-ctrl.github.io'){
+      viewsEl.textContent = '—';
+      return;
+    }
+
+    // Для обычных посетителей подключаем скрипт учёта просмотра.
+    // В режиме автора этот скрипт НЕ загружается, поэтому ваш просмотр не засчитывается.
+    if(!isOwner){
+      const s = document.createElement('script');
+      s.src = 'https://page-views-api.ratneshc.com/script';
+      s.dataset.site = 'schevyrova-ctrl.github.io';
+      s.dataset.path = '/vera-ivanovna-book';
+      s.defer = true;
+      document.head.appendChild(s);
+
+      // Даём сервису время зарегистрировать посещение.
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } else {
+      document.body.classList.add('owner-mode');
+    }
+
+    // Показываем общее число просмотров и автору, и посетителям.
+    try{
+      const url = 'https://page-views-api.ratneshc.com/api/v1/views'
+        + '?site=' + encodeURIComponent('schevyrova-ctrl.github.io')
+        + '&path=' + encodeURIComponent('/vera-ivanovna-book');
+      const res = await fetch(url, {cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      viewsEl.textContent = Number(data.views || 0).toLocaleString('ru-RU');
+    }catch(e){
+      viewsEl.textContent = '—';
+    }
   }
-}
-window.addEventListener('load', updatePageViews);
+
+  window.addEventListener('load', showViews);
+})();
 </script>
 
 </body>
