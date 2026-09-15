@@ -154,12 +154,31 @@ button:hover{transform:translateY(-1px);background:#fff}
   .page-one-sign{font-size:9.5pt}
 }
 
+
+.views-badge{
+  display:flex;align-items:center;gap:5px;
+  padding:9px 13px;border-radius:999px;
+  background:rgba(255,250,244,.92);
+  border:1px solid rgba(185,138,68,.45);
+  color:#8f4e63;font-weight:700;font-size:13px;
+  box-shadow:0 4px 14px rgba(104,69,57,.08)
+}
+@media(max-width:640px){
+  .views-badge{font-size:12px;padding:8px 11px}
+}
+@media print{
+  .views-badge{display:none!important}
+}
+
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="brand">Сказка о любимом воспитателе</div>
   <div class="actions">
+    <div class="views-badge" title="Количество просмотров страницы">
+      👁 Просмотров: <span id="pageViews">—</span>
+    </div>
     <button onclick="firstPage()">Обложка</button>
     <button onclick="window.print()">🖨 Печать / PDF</button>
   </div>
@@ -251,5 +270,42 @@ document.addEventListener('touchend',e=>{
 },{passive:true});
 showPage(0);
 </script>
+
+<script
+  src="https://page-views-api.ratneshc.com/script"
+  data-site="schevyrova-ctrl.github.io"
+  data-path="/vera-ivanovna-book"
+  defer
+></script>
+<script>
+async function updatePageViews(){
+  const el = document.getElementById('pageViews');
+  if(!el) return;
+
+  // Считаем только реальную опубликованную страницу GitHub Pages,
+  // а не локальный файл на компьютере.
+  if(location.hostname !== 'schevyrova-ctrl.github.io'){
+    el.textContent = '—';
+    return;
+  }
+
+  try{
+    // Небольшая пауза — чтобы запрос учёта просмотра успел выполниться.
+    await new Promise(resolve => setTimeout(resolve, 900));
+    const url = 'https://page-views-api.ratneshc.com/api/v1/views'
+      + '?site=' + encodeURIComponent('schevyrova-ctrl.github.io')
+      + '&path=' + encodeURIComponent('/vera-ivanovna-book');
+
+    const res = await fetch(url, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    el.textContent = Number(data.views || 0).toLocaleString('ru-RU');
+  }catch(err){
+    el.textContent = '—';
+  }
+}
+window.addEventListener('load', updatePageViews);
+</script>
+
 </body>
 </html>
